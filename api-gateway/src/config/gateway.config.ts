@@ -3,23 +3,30 @@ interface GatewayConfig {
   timeout: number;
 }
 
+interface Gateways {
+  users: GatewayConfig;
+  products: GatewayConfig;
+  checkouts: GatewayConfig;
+  payments: GatewayConfig;
+}
+
 const TIMEOUT = 10000;
 
 export const gatewayConfigs = {
-  user: {
+  users: {
     url: process.env.USER_SERVICE_URL ?? 'http://localhost:3000',
     timeout: TIMEOUT,
   },
-  product: {
+  products: {
     url: process.env.PRODUCT_SERVICE_URL ?? 'http://localhost:3002',
     timeout: TIMEOUT,
   },
-  checkout: {
+  checkouts: {
     url: process.env.CHECKOUT_SERVICE_URL ?? 'http://localhost:3003',
     timeout: TIMEOUT,
   },
-  payment: {
+  payments: {
     url: process.env.PAYMENT_SERVICE_URL ?? 'http://localhost:3004',
     timeout: TIMEOUT,
   },
-} satisfies Record<string, GatewayConfig>;
+} satisfies Gateways;
