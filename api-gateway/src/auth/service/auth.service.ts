@@ -29,8 +29,8 @@ export class AuthService {
 
   validateJwtToken(token: string) {
     try {
-      return this.jwtService.verify(token);
-    } catch (error) {
+      return this.jwtService.verify<UserSession>(token);
+    } catch {
       throw new UnauthorizedException('Invalid token');
     }
   }
@@ -44,7 +44,7 @@ export class AuthService {
         ),
       );
       return data;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid session token');
     }
   }
@@ -59,7 +59,7 @@ export class AuthService {
         ),
       );
       return data;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid email or password');
     }
   }
@@ -79,7 +79,7 @@ export class AuthService {
         ),
       );
       return data;
-    } catch (error) {
+    } catch {
       throw new BadRequestException('Failed to register user');
     }
   }
