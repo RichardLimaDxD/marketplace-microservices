@@ -1,0 +1,38 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+
+@Injectable()
+export class RoleGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredRoles) return true;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const user = context.switchToHttp().getRequest().user;
+
+    if (!user || !user.role) throw new ForbiddenException('User not found');
+
+    const hasRole = requiredRoles.includes(user.role);
+
+    if (!hasRole) {
+      throw new ForbiddenException(
+        `Access denied. Required roles: ${requiredRoles.join(', ')}`,
+      );
+    }
+
+    return true;
+  }
+}
