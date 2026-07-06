@@ -5,8 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { firstValueFrom, timeout } from 'rxjs';
-import { gatewayConfigs } from 'src/config/gateway.config';
+import { firstValueFrom } from 'rxjs';
+import { gatewayConfigs } from '@/config/gateway.config';
 
 export interface UserSession {
   valid: boolean;
