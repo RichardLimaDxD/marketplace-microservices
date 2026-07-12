@@ -1,28 +1,39 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/require-await */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import {
   ThrottlerException,
   ThrottlerGuard,
   ThrottlerRequest,
 } from '@nestjs/throttler';
+import { Request, Response } from 'express';
+
+interface ThrottlerNamedConfig {
+  limit: number;
+  ttl: number;
+}
+
+interface RequestResponse {
+  req: Request;
+  res: Response;
+}
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
-  protected async getTracker(request: Record<string, any>): Promise<string> {
-    return `${request.ip}-${request.headers['user-agent']}`;
+  protected getTracker(request: Request): Promise<string> {
+    return Promise.resolve(`${request.ip}-${request.headers['user-agent']}`);
   }
 
   protected async handleRequest(
     requestProps: ThrottlerRequest,
   ): Promise<boolean> {
     const { context, limit, ttl } = requestProps;
-    const { req, res } = this.getRequestResponse(context);
 
-    const throttles = this.reflector.get('throttles', context.getHandler());
+    const { req, res } = this.getRequestResponse(context) as RequestResponse;
+
+    const throttles = this.reflector.get<Record<string, ThrottlerNamedConfig>>(
+      'throttles',
+      context.getHandler(),
+    );
+
     const throttleName = throttles ? Object.keys(throttles)[0] : 'default';
     const tracker = await this.getTracker(req);
 

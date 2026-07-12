@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AuthService, UserSession } from '@/auth/service/auth.service';
+import { AuthResponse, AuthService } from '@/auth/service/auth.service';
 import { Request } from 'express';
 
 @Injectable()
@@ -20,13 +20,13 @@ export class SessionGuard implements CanActivate {
       throw new UnauthorizedException('Session token is required');
 
     try {
-      const session: UserSession =
+      const session: AuthResponse =
         await this.authService.validateSessionToken(sessionToken);
 
-      if (!session.valid || !session.user)
+      if (!session.access_token || !session.user)
         throw new UnauthorizedException('Invalid session');
 
-      (request as unknown as UserSession).user = session.user;
+      (request as unknown as AuthResponse).user = session.user;
 
       return true;
     } catch {

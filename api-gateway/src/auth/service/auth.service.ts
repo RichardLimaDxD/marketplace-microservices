@@ -7,6 +7,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
 import { gatewayConfigs } from '@/config/gateway.config';
+import { LoginDto } from '@/auth/dtos/login.dto';
+import { RegisterDto } from '@/auth/dtos/register.dto';
 
 export interface UserSession {
   valid: boolean;
@@ -20,6 +22,17 @@ export interface UserSession {
   } | null;
 }
 
+export interface AuthResponse {
+  access_token: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -27,18 +40,18 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  validateJwtToken(token: string) {
+  validateJwtToken(token: string): Promise<AuthResponse> {
     try {
-      return this.jwtService.verify<UserSession>(token);
+      return this.jwtService.verifyAsync<AuthResponse>(token);
     } catch {
       throw new UnauthorizedException('Invalid token');
     }
   }
 
-  async validateSessionToken(sessionToken: string): Promise<UserSession> {
+  async validateSessionToken(sessionToken: string): Promise<AuthResponse> {
     try {
       const { data } = await firstValueFrom(
-        this.httpService.get<UserSession>(
+        this.httpService.get<AuthResponse>(
           `${gatewayConfigs.users.url}/sessions/validate/${sessionToken}`,
           { timeout: gatewayConfigs.users.timeout },
         ),
@@ -49,7 +62,7 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: { email: string; password: string }): Promise<string> {
+  async login(loginDto: LoginDto): Promise<string> {
     try {
       const { data } = await firstValueFrom(
         this.httpService.post<string>(
@@ -64,15 +77,10 @@ export class AuthService {
     }
   }
 
-  async register(registerDto: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }): Promise<string> {
+  async register(registerDto: RegisterDto): Promise<AuthResponse> {
     try {
       const { data } = await firstValueFrom(
-        this.httpService.post<string>(
+        this.httpService.post<AuthResponse>(
           `${gatewayConfigs.users.url}/register`,
           registerDto,
           { timeout: gatewayConfigs.users.timeout },
