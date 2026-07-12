@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
-  IsIn,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -11,7 +11,7 @@ import {
 
 enum Role {
   ADMIN = 'ADMIN',
-  CUSTOMER = 'CUSTOMER',
+  USER = 'USER',
   SELLER = 'SELLER',
 }
 
@@ -57,13 +57,13 @@ export class RegisterDto {
   lastName: string;
 
   @ApiProperty({
-    description: 'Role do usuário',
-    example: 'ADMIN',
-    enum: ['ADMIN', 'CUSTOMER', 'SELLER'],
-    default: 'CUSTOMER',
+    description: 'Permissões de usuário',
+    example: 'USER',
+    enum: ['ADMIN', 'USER', 'SELLER'],
+    default: 'USER',
   })
   @IsString()
   @IsOptional()
-  @IsIn(Object.values(Role))
+  @IsEnum(Role)
   role?: Role;
 }
