@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { gatewayConfigs } from '@/config/gateway.config';
 import { firstValueFrom } from 'rxjs';
+import { CircuitBreakerService } from '@/common/circuit-breaker/circuit-breaker.service';
 
 interface UserInfo {
   userId: string;
@@ -13,7 +18,10 @@ interface UserInfo {
 export class ProxyService {
   private readonly logger = new Logger(ProxyService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly circuitBreakerService: CircuitBreakerService,
+  ) {}
 
   async proxyRequest(
     serviceName: keyof typeof gatewayConfigs,
@@ -28,31 +36,33 @@ export class ProxyService {
 
     this.logger.log(`Proxying ${method} request to ${serviceName}: ${url}`);
 
-    try {
-      const enhancedHeaders = {
-        ...headers,
-        'x-user-id': userInfo?.userId,
-        'x-user-email': userInfo?.email,
-        'x-user-role': userInfo?.role,
-      };
+    return this.circuitBreakerService.executeWithCircuitBreaker(
+      async () => {
+        const enhancedHeaders = {
+          ...headers,
+          'x-user-id': userInfo?.userId,
+          'x-user-email': userInfo?.email,
+          'x-user-role': userInfo?.role,
+        };
 
-      const response = await firstValueFrom(
-        this.httpService.request({
-          method: method.toLowerCase(),
-          url,
-          data,
-          headers: enhancedHeaders,
-          timeout: service.timeout,
-        }),
-      );
+        const response = await firstValueFrom(
+          this.httpService.request({
+            method: method.toLowerCase(),
+            url,
+            data,
+            headers: enhancedHeaders,
+            timeout: service.timeout,
+          }),
+        );
 
-      return response;
-    } catch (error) {
-      this.logger.error(
-        `Error proxying ${method} request to ${serviceName}: ${url}`,
-      );
-      throw error;
-    }
+        return response;
+      },
+      () => {
+        throw new Error(`${serviceName} service is temporarily unavailable`);
+      },
+      `proxy-${serviceName}`,
+      { failureThreshold: 3, timeout: 30000, resetTimeout: 30000 },
+    );
   }
 
   async getServiceHealth(serviceName: keyof typeof gatewayConfigs) {
@@ -60,7 +70,7 @@ export class ProxyService {
       const service = gatewayConfigs[serviceName];
 
       const response = await firstValueFrom(
-        this.httpService.get(`${service.url}/health`, {
+        this.httpService.get<{ status: string }>(`${service.url}/health`, {
           timeout: 3000,
         }),
       );
