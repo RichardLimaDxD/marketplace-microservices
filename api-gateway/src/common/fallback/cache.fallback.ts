@@ -32,7 +32,7 @@ export class CacheFallbackService {
   createCacheFallback<T>(
     key: string,
     defaultData: T,
-    timeout: number,
+    timeout: number = 300000,
   ): () => Promise<T | null> {
     return async (): Promise<T> => {
       const cached = await this.getCachedData<T>(key, timeout);
