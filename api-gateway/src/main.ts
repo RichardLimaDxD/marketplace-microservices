@@ -5,8 +5,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
 import helmet from 'helmet';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -119,9 +120,18 @@ async function bootstrap() {
     `,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  const configService = app.get(ConfigService);
 
-  console.log(`Server is running on port ${process.env.PORT ?? 3000}`);
-  console.log(`Swagger UI is running on ${process.env.SWAGGER_URL}`);
+  const port: number = configService.get<number>('PORT', 3000);
+
+  const swaggerUrl: string = configService.get<string>(
+    'SWAGGER_URL',
+    'http://localhost:3000/api',
+  );
+
+  await app.listen(port);
+
+  Logger.log(`Server is running on port ${port}`);
+  Logger.log(`Swagger UI is running on ${swaggerUrl}`);
 }
 bootstrap();
