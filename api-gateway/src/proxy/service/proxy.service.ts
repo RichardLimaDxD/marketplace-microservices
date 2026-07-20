@@ -1,14 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
-import { gatewayConfigs } from '@/config/gateway.config';
 import { firstValueFrom } from 'rxjs';
 import { CircuitBreakerService } from '@/common/circuit-breaker/circuit-breaker.service';
 import { CacheFallbackService } from '@/common/fallback/cache.fallback';
 import { DefaultFallbackService } from '@/common/fallback/default.fallback';
+import { gatewayConfigs } from '@/config/gateway.config';
 
 interface UserInfo {
   userId: string;
@@ -43,7 +39,7 @@ export class ProxyService {
     const fallback = this.createServiceFallback(serviceName, method, path);
 
     return this.circuitBreakerService.executeWithCircuitBreaker(
-      async () => {
+      async (): Promise<unknown> => {
         const enhancedHeaders = {
           ...headers,
           'x-user-id': userInfo?.userId,
@@ -70,7 +66,6 @@ export class ProxyService {
 
         return response.data;
       },
-
       fallback,
       `proxy-${serviceName}`,
       { failureThreshold: 3, timeout: 30000, resetTimeout: 30000 },
@@ -82,19 +77,22 @@ export class ProxyService {
       const service = gatewayConfigs[serviceName];
 
       const response = await firstValueFrom(
-        this.httpService.get<{ status: string }>(`${service.url}/health`, {
+        this.httpService.get<unknown>(`${service.url}/health`, {
           timeout: 3000,
         }),
       );
 
-      return { status: 'healthy', data: response.data as { status: string } };
+      return { status: 'healthy' as const, data: response.data };
     } catch (error) {
-      return { status: 'unhealthy', error: (error as Error).message };
+      return {
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 
   private createServiceFallback(
-    serviceName: keyof typeof gatewayConfigs,
+    serviceName: string,
     method: string,
     path: string,
   ) {
@@ -106,6 +104,7 @@ export class ProxyService {
             'Authentication service unavailable',
           );
         }
+
         return this.defaultFallbackService.createErrorFallback(
           'users',
           'User service unavailable',
@@ -117,11 +116,12 @@ export class ProxyService {
             { products: [], total: 0, page: 1, limit: 10 },
           );
         }
+
         return this.defaultFallbackService.createErrorFallback(
           'products',
           'Product service unavailable',
         );
-      case 'checkouts':
+      case 'checkout':
       case 'payments':
         return this.defaultFallbackService.createErrorFallback(
           serviceName,

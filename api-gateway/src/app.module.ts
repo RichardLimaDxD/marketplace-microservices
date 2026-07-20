@@ -1,6 +1,4 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { AppController } from '@/app.controller';
-import { AppService } from '@/app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ProxyModule } from '@/proxy/proxy.module';
@@ -9,6 +7,12 @@ import { LoggingMiddleware } from '@/middleware/logging/logging.middleware';
 import { AuthModule } from '@/auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
 import { CustomThrottlerGuard } from './guards/throttler.guard';
+import { HealthModule } from './health/health.module';
+import { HealthCheckModule } from './common/health/health-check.module';
+import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
+import { FallbackModule } from './common/fallback/fallback.module';
+import { TimeoutModule } from './common/timeout/timeout.module';
+import { RetryModule } from './common/retry/retry.module';
 
 @Module({
   imports: [
@@ -39,12 +43,14 @@ import { CustomThrottlerGuard } from './guards/throttler.guard';
     ProxyModule,
     MiddlewareModule,
     AuthModule,
+    HealthModule,
+    HealthCheckModule,
+    CircuitBreakerModule,
+    FallbackModule,
+    RetryModule,
+    TimeoutModule,
   ],
-  controllers: [AppController],
-  providers: [
-    AppService,
-    { provide: APP_GUARD, useClass: CustomThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: CustomThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

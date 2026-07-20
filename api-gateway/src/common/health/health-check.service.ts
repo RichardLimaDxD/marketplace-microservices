@@ -1,14 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/require-await */
 import { Injectable, Logger } from '@nestjs/common';
 import { HealthStatus, ServiceHealth } from './health-check.interface';
 import { HttpService } from '@nestjs/axios';
 import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 import { firstValueFrom, timeout } from 'rxjs';
 import { gatewayConfigs } from '@/config/gateway.config';
+import { AxiosResponse } from 'axios';
 
 @Injectable()
 export class HealthCheckService {
@@ -29,16 +25,16 @@ export class HealthCheckService {
     try {
       await this.circuitBreakerService.executeWithCircuitBreaker(
         async () => {
-          const response = await firstValueFrom(
+          const response: AxiosResponse = await firstValueFrom(
             this.httpService
               .get(`${service.url}/health`, {
                 timeout: service.timeout,
               })
               .pipe(timeout(service.timeout)),
           );
-          return response.data;
+          return response.data as ServiceHealth;
         },
-        async () => {
+        () => {
           throw new Error('Circuit breaker fallback');
         },
         `health-${serviceName}`,
@@ -56,8 +52,10 @@ export class HealthCheckService {
 
       this.healthCache.set(serviceName, serviceHealth);
       return serviceHealth;
-    } catch (error) {
+    } catch (error: unknown) {
       const responseTime = Date.now() - startTime;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       const serviceHealth: ServiceHealth = {
         name: serviceName,
@@ -65,13 +63,13 @@ export class HealthCheckService {
         status: HealthStatus.UNHEALTHY,
         responseTime,
         lastChecked: new Date(),
-        error: error.message as Error,
+        error: errorMessage,
       };
 
       this.healthCache.set(serviceName, serviceHealth);
 
       this.logger.error(
-        `Health check failed for ${serviceName}: ${error.message}`,
+        `Health check failed for ${serviceName}: ${errorMessage}`,
       );
 
       return serviceHealth;
@@ -93,16 +91,29 @@ export class HealthCheckService {
     return healthChecks.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
-      } else {
-        return {
-          name: services[index],
-          url: gatewayConfigs[services[index]].url,
-          status: HealthStatus.UNHEALTHY,
-          responseTime: 0,
-          lastChecked: new Date(),
-          error: result.reason.message as Error,
-        };
       }
+
+      const reason: unknown = result.reason;
+
+      const errorMessage =
+        reason instanceof Error ? reason.message : String(reason);
+
+      return {
+        name: services[index],
+        url: gatewayConfigs[services[index]].url,
+        status: HealthStatus.UNHEALTHY,
+        responseTime: 0,
+        lastChecked: new Date(),
+        error: errorMessage,
+      };
     });
+  }
+
+  getCachedHealth(serviceName: string): ServiceHealth | undefined {
+    return this.healthCache.get(serviceName);
+  }
+
+  getAllCachedHealth(): ServiceHealth[] {
+    return Array.from(this.healthCache.values());
   }
 }

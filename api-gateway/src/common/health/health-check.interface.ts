@@ -10,5 +10,5 @@ export interface ServiceHealth {
   status: HealthStatus;
   responseTime: number;
   lastChecked: Date;
-  error?: Error;
+  error?: string;
 }
